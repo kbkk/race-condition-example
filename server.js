@@ -29,6 +29,22 @@ app.post('/register', (req, res) => {
         });
 });
 
+app.post('/register/unique', (req, res) => {
+    let username = req.body.username;
+    let email = req.body.email;
+
+    db
+        .run(`INSERT INTO users_unique VALUES(?, ?)`, username, email)
+        .then(() => res.send(`You've registered successfully!`))
+        .catch(err => {
+            if(err.errno === 19 && err.code === 'SQLITE_CONSTRAINT')
+                res.send('User with this email already exists!');
+            else
+                res.status(500).send('Something went wrong');
+            console.log(err);
+        });
+});
+
 app.get('/user/:email', (req, res) => {
     db
         .all('SELECT * FROM users WHERE email = ?', req.params.email)
@@ -40,8 +56,10 @@ app.get('/user/:email', (req, res) => {
 Promise.resolve()
     .then(() => db.open(':memory:'))
     .then(db => {
-        return db.run(`CREATE TABLE IF NOT EXISTS users (name VARCHAR(255), email VARCHAR(255))`)
-            .then(() => db.run(`INSERT INTO users VALUES('test', 'mail@example.com')`));
+        return db.run(`CREATE TABLE users (name VARCHAR(255), email VARCHAR(255))`)
+            .then(() => db.run(`INSERT INTO users VALUES('test', 'mail@example.com')`))
+            .then(() => db.run(`CREATE TABLE users_unique (name VARCHAR(255), email VARCHAR(255))`))
+            .then(() => db.run(`CREATE UNIQUE INDEX EmailUniqueIndex ON users_unique (email)`));
 
     })
     .then(() => app.listen(5002, () => {
